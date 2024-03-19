@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:permission_handler/permission_handler.dart';
@@ -127,12 +128,33 @@ class _AddContactsPageState extends State<AddContactsPage> {
     super.initState();
     if (widget.scanResult != null) {
       String rawData = widget.scanResult!.rawContent;
-      List<String> parts = rawData.split(' ');
-      if (parts.length >= 3) {
-        _nameController.text = parts[0];
-        _gmailController.text = parts[1];
-        _phoneNumberController.text = parts.sublist(2).join(' ');
+      String name = '';
+      String phoneNumber = '';
+      String gmail = '';
+
+      // Regular expressions to match letters, digits, and email addresses
+      RegExp letterRegex = RegExp(r'[a-zA-Z\s]');
+      RegExp digitRegex = RegExp(r'(?!http)[0-9]');
+      RegExp emailRegex = RegExp(
+          r'\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b'); // Email regex
+
+      for (int i = 0; i < rawData.length; i++) {
+        if (letterRegex.hasMatch(rawData[i])) {
+          name += rawData[i];
+        } else if (digitRegex.hasMatch(rawData[i])) {
+          phoneNumber += rawData[i];
+        }
       }
+
+      // Find email address in raw content
+      var match = emailRegex.firstMatch(rawData);
+      if (match != null) {
+        gmail = match.group(0)!;
+      }
+
+      _nameController.text = name.trim();
+      _phoneNumberController.text = phoneNumber.trim();
+      _gmailController.text = gmail.trim();
     }
   }
 
@@ -158,12 +180,17 @@ class _AddContactsPageState extends State<AddContactsPage> {
             TextField(
               controller: _gmailController,
               decoration: InputDecoration(labelText: 'Gmail'),
+              keyboardType: TextInputType.emailAddress,
+              // Add input formatters if necessary
             ),
             SizedBox(height: 16),
             TextField(
               keyboardType: TextInputType.phone,
               controller: _phoneNumberController,
               decoration: InputDecoration(labelText: 'Phone Number'),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'(?!http)[0-9]')),
+              ],
             ),
             SizedBox(height: 16),
             ElevatedButton(
@@ -178,8 +205,8 @@ class _AddContactsPageState extends State<AddContactsPage> {
 
   Future<void> _saveContact(BuildContext context) async {
     String name = _nameController.text.trim();
-    String gmail = _gmailController.text.trim();
     String phoneNumber = _phoneNumberController.text.trim();
+    String gmail = _gmailController.text.trim();
 
     if (await Permission.contacts.request().isGranted) {
       try {
@@ -213,8 +240,8 @@ class _AddContactsPageState extends State<AddContactsPage> {
         );
 
         _nameController.clear();
-        _gmailController.clear();
         _phoneNumberController.clear();
+        _gmailController.clear();
       } catch (e) {
         showDialog(
           context: context,
